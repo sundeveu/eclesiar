@@ -3,14 +3,15 @@ Function Get-EclesiarScripts {
         [string] $BaseUrl = 'https://24na7.info/eclesiar-scripts/'
     )
     $fItems = @(
-        [pscustomobject]@{Name='Auctions';              Enabled = $True;    Path = $gBaseUrl + 'Eclesiar%20Market%20&%20Auctions.user.js';          Downloaded = $False},
-        [pscustomobject]@{Name='Additions';             Enabled = $True;    Path = $gBaseUrl + 'Eclesiar%20Misc%20Additions.user.js';               Downloaded = $False},
-        [pscustomobject]@{Name='TrainingCenter';        Enabled = $True;    Path = $gBaseUrl + 'Eclesiar%20Training%20Center.user.js';              Downloaded = $False},
-        [pscustomobject]@{Name='MerchandAssistant';     Enabled = $True;    Path = $gBaseUrl + 'Eclesiar_Januszex_Assistant_by_p0tfur.user.js';     Downloaded = $False},
-        [pscustomobject]@{Name='Companies';             Enabled = $True;    Path = $gBaseUrl + 'companies.user.js';                                 Downloaded = $False},
-        [pscustomobject]@{Name='Holdings';              Enabled = $True;    Path = $gBaseUrl + 'holdings.user.js';                                  Downloaded = $False},
-        [pscustomobject]@{Name='NpcWorkersExport';      Enabled = $True;    Path = $gBaseUrl + 'Eclesiar_NPC_Workers_Export.user.js';               Downloaded = $False},
-        [pscustomobject]@{Name='NpcRegionExport';       Enabled = $True;    Path = $gBaseUrl + 'Eclesiar_Region_NPC_Export.user.js';                Downloaded = $False}
+        [pscustomobject]@{Name='Auctions';              Enabled = $True;    Path = $BaseUrl + 'Eclesiar%20Market%20&%20Auctions.user.js';                   Downloaded = $False},
+        [pscustomobject]@{Name='Additions';             Enabled = $True;    Path = $BaseUrl + 'Eclesiar%20Misc%20Additions.user.js';                        Downloaded = $False},
+        [pscustomobject]@{Name='TrainingCenter';        Enabled = $True;    Path = $BaseUrl + 'Eclesiar%20Training%20Center.user.js';                       Downloaded = $False},
+        [pscustomobject]@{Name='MerchandAssistant';     Enabled = $True;    Path = $BaseUrl + 'Eclesiar_Januszex_Assistant_by_p0tfur.user.js';              Downloaded = $False},
+        [pscustomobject]@{Name='Companies';             Enabled = $True;    Path = $BaseUrl + 'companies.user.js';                                          Downloaded = $False},
+        [pscustomobject]@{Name='Holdings';              Enabled = $True;    Path = $BaseUrl + 'holdings.user.js';                                           Downloaded = $False},
+        [pscustomobject]@{Name='NpcWorkersExport';      Enabled = $True;    Path = $BaseUrl + 'Eclesiar_NPC_Workers_Export.user.js';                        Downloaded = $False},
+        [pscustomobject]@{Name='NpcRegionExport';       Enabled = $True;    Path = $BaseUrl + 'Eclesiar_Region_NPC_Export.user.js';                         Downloaded = $False},
+        [pscustomobject]@{Name='ProfileHover';          Enabled = $True;    Path = 'https://cdn.nekobot.pl/scripts/Eclesiar_Profile_Hover_Card.user.js';    Downloaded = $False}
     )
     $fItems | ForEach {
         $fName = $_.Name
