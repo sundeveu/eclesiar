@@ -13,6 +13,10 @@ Function Get-EclesiarScripts {
         [pscustomobject]@{Name='NpcRegionExport';       Enabled = $True;    Path = $BaseUrl + 'Eclesiar_Region_NPC_Export.user.js';                         Downloaded = $False;    ExistingMD5 = ''; DownloadedMD5 = ''},
         [pscustomobject]@{Name='ProfileHover';          Enabled = $True;    Path = 'https://cdn.nekobot.pl/scripts/Eclesiar_Profile_Hover_Card.user.js';    Downloaded = $False;    ExistingMD5 = ''; DownloadedMD5 = ''}
     )
+    
+    If (!(Test-Path -Path '.\src')) {
+        New-Item -ItemType Directory -Path '.\src' -Force | Out-Null
+    }
     $fTargetPath = (Resolve-Path -Path '.\src').Path
     $fBackupPath = $fTargetPath + '\backup-' + (Get-Date -format "yyyyMMdd_HHmmss")
     $fItems | ForEach {
@@ -29,21 +33,26 @@ Function Get-EclesiarScripts {
                 $_.DownloadedMD5 = (Get-FileHash -Path "$($fTargetPath)\$($fName).tmp.js" -Algorithm 'MD5').Hash
                 $_.Downloaded = $True
             }
-            If ($_.ExistingMD5 -ne $_.DownloadedMD5) {
-                # Create backup
-                If (!(Test-Path -Path "$($fBackupPath)")) {
-                    New-Item -ItemType Directory -Path $fBackupPath -Force | Out-Null
+            If ('' -ne $_.ExistingMD5) {
+                If ( $_.ExistingMD5 -ne $_.DownloadedMD5) {
+                    # Create backup
+                    If (!(Test-Path -Path "$($fBackupPath)")) {
+                        New-Item -ItemType Directory -Path $fBackupPath -Force | Out-Null
+                    }
+                    Copy-Item -Path "$($fTargetPath)\$($fName).js" -Destination "$($fBackupPath)\"
+                    
+                    # Remove backuped version
+                    Remove-Item -Path "$($fTargetPath)\$($fName).js"
+                    
+                    # Rename downloaded to final name
+                    Rename-Item -Path "$($fTargetPath)\$($fName).tmp.js" -NewName "$($fName).js"
+                } Else {
+                    # Delete downloaded file because is the same as previous one
+                    Remove-Item -Path "$($fTargetPath)\$($fName).tmp.js"
                 }
-                Copy-Item -Path "$($fTargetPath)\$($fName).js" -Destination "$($fBackupPath)\"
-                
-                # Remove backuped version
-                Remove-Item -Path "$($fTargetPath)\$($fName).js"
-                
+            } ElseIf($_.Downloaded) {
                 # Rename downloaded to final name
                 Rename-Item -Path "$($fTargetPath)\$($fName).tmp.js" -NewName "$($fName).js"
-            } Else {
-                # Delete downloaded file because is the same as previous one
-                Remove-Item -Path "$($fTargetPath)\$($fName).tmp.js"
             }
         }
     }
