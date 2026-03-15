@@ -14,7 +14,7 @@ Function Get-EclesiarScripts {
         [pscustomobject]@{Name='ProfileHover';          Enabled = $True;    Path = 'https://cdn.nekobot.pl/scripts/Eclesiar_Profile_Hover_Card.user.js';    Downloaded = $False;    ExistingMD5 = ''; DownloadedMD5 = ''}
     )
     $fTargetPath = (Resolve-Path -Path '.\src').Path
-    $fBackupPath = $fTargetPath + '\' + (Get-Date -format "yyyyMMdd_HHmmss")
+    $fBackupPath = $fTargetPath + '\backup-' + (Get-Date -format "yyyyMMdd_HHmmss")
     $fItems | ForEach {
         $fName = $_.Name
         $fEnabled = $_.Enabled
@@ -35,17 +35,16 @@ Function Get-EclesiarScripts {
                     New-Item -ItemType Directory -Path $fBackupPath -Force | Out-Null
                 }
                 Copy-Item -Path "$($fTargetPath)\$($fName).js" -Destination "$($fBackupPath)\"
+                
+                # Remove backuped version
                 Remove-Item -Path "$($fTargetPath)\$($fName).js"
+                
+                # Rename downloaded to final name
                 Rename-Item -Path "$($fTargetPath)\$($fName).tmp.js" -NewName "$($fName).js"
-                Write-Host "Copy to backup: '$($fTargetPath)\$($fName).js' to $($fBackupPath)\"
-                Write-Host "Delete: '$($fTargetPath)\$($fName).js'"
-                Write-Host "Rename: '$($fTargetPath)\$($fName).tmp.js' to '$($fName).js'"
             } Else {
-                #Delete downloaded file because is the same as previous
+                # Delete downloaded file because is the same as previous one
                 Remove-Item -Path "$($fTargetPath)\$($fName).tmp.js"
-                Write-Host "Delete: '$($fTargetPath)\$($fName).tmp.js'"
             }
-            Write-Host "---------------------------------------------------"
         }
     }
     Return $fItems
