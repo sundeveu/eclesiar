@@ -1,0 +1,762 @@
+// ==UserScript==
+// @name         Eclesiar Market - Show Seller/holding Country Flag
+// @namespace    https://eclesiar.com/
+// @version      1.3.8
+// @description  Show nationality flag next to seller name on /market (users and holdings via CEO), for auctions added indicators for average prices
+// @author       p0tfur
+// @match        https://eclesiar.com/market*
+// @match        https://eclesiar.com/militaryunit/*
+// @match        https://apollo.eclesiar.com/market*
+// @match        https://apollo.eclesiar.com/militaryunit/*
+// @updateURL    https://24na7.info/eclesiar-scripts/Eclesiar Market & Auctions.user.js
+// @downloadURL  https://24na7.info/eclesiar-scripts/Eclesiar Market & Auctions.user.js
+// @run-at       document-end
+// @grant        none
+// ==/UserScript==
+
+/* Auctions indicators explanation:
+Display depending on the situation:
+1. Red arrow pointing up if the price is more than 10% higher than the 7-day average.
+2. Green arrow pointing down if the price is more than 10% lower.
+3. Horizontal yellow line if the price falls within +- 10% of the market price.
+ */
+
+(function () {
+  "use strict";
+
+  const CACHE_KEY = "ec_market_flags_cache_v1";
+  const CACHE_TTL_MS = 72 * 60 * 60 * 1000; // 72h
+  const MAX_CONCURRENCY = 4;
+  const BATCH_SIZE = 3;
+
+  const cache = loadCache();
+  const IS_MAIN_MARKET_PAGE = location.pathname === "/market";
+
+  // Detect auction pages to disable certain UI injections (like [G]/[H] badges)
+  const IS_AUCTION_PAGE =
+    location.pathname.startsWith("/market/auction") ||
+    (() => {
+      const h1 = document.querySelector('h1[style*="line-height"]');
+      if (!h1) return false;
+      const txt = (h1.textContent || "").trim().toLowerCase();
+      return txt === "dom aukcyjny" || txt === "auction house";
+    })();
+
+  const IS_CURRENCY_MARKET_PAGE = (() => {
+    const header = document.querySelector(".content-header h1");
+    if (!header) return false;
+    const txt = (header.textContent || "").trim().toLowerCase();
+    return txt === "rynek walutowy" || txt === "currency market";
+  })();
+
+  const IS_SELL_PAGE = location.pathname === "/market/sell";
+  const IS_AUCTION_OR_COIN_PAGE =
+    location.pathname.startsWith("/market/auction") ||
+    (location.pathname.startsWith("/market/coin/") && location.pathname.includes("/advanced"));
+  const IS_MU_PAGE = location.pathname.startsWith("/militaryunit/");
+
+  // Pre-compile regexes
+  const RE_NBSP = /\u00A0/g;
+  const RE_NOT_NUM = /[^[0-9.,-]]/g;
+  const RE_COMMA = /,/g;
+  const RE_DOT = /\./g;
+  const RE_MULTIPLIER = /[x*]/i;
+
+  // Pre-compile selector string since page type doesn't change
+  const SELLER_SELECTORS = (() => {
+    const s = [
+      'td.column-1 a[href^="/user/"]',
+      'td.column-1 a[href^="/holding/"]',
+      'td.column-1 a[href^="/militaryunit/"]',
+    ];
+    if (IS_CURRENCY_MARKET_PAGE) {
+      s.push(
+        'td.column-0 a[href^="/user/"]',
+        'td.column-0 a[href^="/holding/"]',
+        'td.column-0 a[href^="/militaryunit/"]'
+      );
+    }
+    return s.join(", ");
+  })();
+
+  // Allow simple multiplication expressions in numeric inputs (e.g. "4x50" => 200)
+  function parseMultiplication(value) {
+    if (value === null || value === undefined) return null;
+    const trimmed = String(value).trim();
+    if (!trimmed) return null;
+    const compact = trimmed.replace(/\s+/g, "");
+    const parts = compact.split(RE_MULTIPLIER).filter((p) => p.length);
+    // No multiplier symbol present: treat as normal number
+    if (parts.length === 1 && !RE_MULTIPLIER.test(compact)) {
+      const num = Number(compact);
+      return Number.isFinite(num) ? num : null;
+    }
+    if (!parts.length) return null;
+    let product = 1;
+    for (const part of parts) {
+      const num = Number(part.replace(",", "."));
+      if (!Number.isFinite(num)) return null;
+      product *= num;
+    }
+    return product;
+  }
+
+  function enableMultiplicationInputs(root = document) {
+    const selectors = [];
+    if (IS_SELL_PAGE) selectors.push("#sell-amount");
+    if (IS_AUCTION_OR_COIN_PAGE) selectors.push(".amount_to_buy");
+    if (IS_MU_PAGE) selectors.push('input.quantity-input[name="quantity-input[]"]');
+
+    selectors.forEach((selector) => {
+      root.querySelectorAll(selector).forEach((input) => {
+        if (input.dataset.ecMultiplicationBound === "1") return;
+        input.dataset.ecMultiplicationBound = "1";
+
+        const originalType = input.getAttribute("type") || "text";
+        const toNumberType = () => input.setAttribute("type", "number");
+        const toTextType = () => input.setAttribute("type", "text");
+
+        const applyProduct = () => {
+          const product = parseMultiplication(input.value);
+          if (product === null || Number.isNaN(product)) return;
+          input.value = product;
+          toNumberType();
+        };
+
+        // Allow entering expressions by using text type while focused
+        input.addEventListener("focus", () => {
+          toTextType();
+          input.setAttribute("inputmode", "decimal");
+        });
+        input.addEventListener("blur", () => {
+          applyProduct();
+          input.setAttribute("type", originalType === "number" ? "number" : originalType);
+        });
+        input.addEventListener("change", applyProduct);
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") applyProduct();
+        });
+      });
+    });
+  }
+
+  function loadCache() {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      const now = Date.now();
+      for (const k of Object.keys(parsed)) {
+        if (!parsed[k] || !parsed[k].ts || now - parsed[k].ts > CACHE_TTL_MS) {
+          delete parsed[k];
+        }
+      }
+      return parsed;
+    } catch {
+      return {};
+    }
+  }
+
+  let saveTimeout;
+  function saveCache() {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+      } catch {}
+    }, 2000);
+  }
+
+  function makeAbsoluteUrl(url) {
+    try {
+      return new URL(url, location.origin).href;
+    } catch {
+      return url;
+    }
+  }
+
+  function findSellerAnchors(root = document) {
+    return Array.from(root.querySelectorAll(SELLER_SELECTORS));
+  }
+
+  // Insert motivational banner above the quality selection row
+  function insertMotivationBanner(root = document) {
+    if (!IS_MAIN_MARKET_PAGE) return;
+    if (root.querySelector(".ec-pl-banner")) return;
+
+    // Prefer placing at the very top of the main market list container when present
+    const marketContainer = root.querySelector(".market_item_list_interface");
+
+    // Fallback: locate the row that contains the "Select quality" label
+    const qualityRow = root.querySelector(".row.mt-4 .font-15.capitalize")
+      ? root.querySelector(".row.mt-4").closest(".row.mt-4")
+      : root.querySelector(".row.mt-4");
+
+    const container = marketContainer || qualityRow || root.querySelector(".row.mt-4") || root.body;
+    if (!container) return;
+
+    const banner = document.createElement("div");
+    banner.className = "ec-pl-banner";
+    banner.textContent = "";
+    banner.style.padding = "10px 14px";
+    banner.style.margin = "10px 0 6px 0";
+    banner.style.border = "1px solid #b91c1c";
+    banner.style.borderRadius = "8px";
+    // Polish flag style: white (top) and red (bottom)
+    banner.style.background = "linear-gradient(to bottom, #ffffff 0%, #ffffff 50%, #DC143C 50%, #DC143C 100%)";
+    banner.style.color = "#111";
+    banner.style.fontWeight = "700";
+    banner.style.fontSize = "16px";
+    banner.style.display = "flex";
+    banner.style.alignItems = "center";
+    banner.style.justifyContent = "center";
+    banner.style.boxShadow = "0 2px 6px rgba(0,0,0,0.15)";
+    banner.style.fontFamily = '"Segoe UI", "Noto Sans", Arial, sans-serif';
+
+    const applyBannerResponsive = () => {
+      const isMobile = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+      if (isMobile) {
+        banner.style.fontSize = "14px";
+        banner.style.padding = "8px 10px";
+        banner.style.flexDirection = "column";
+        banner.style.textAlign = "center";
+      } else {
+        banner.style.fontSize = "16px";
+        banner.style.padding = "10px 14px";
+        banner.style.flexDirection = "row";
+        banner.style.textAlign = "center";
+      }
+    };
+
+    applyBannerResponsive();
+    window.addEventListener("resize", applyBannerResponsive);
+
+    // Add a pill with border for better text readability
+    const bannerText = document.createElement("span");
+    bannerText.textContent = "Kupuj polskie, wspieraj lokalnych przedsiębiorców";
+    bannerText.style.padding = "4px 10px";
+    bannerText.style.border = "2px solid rgba(0,0,0,0.35)";
+    bannerText.style.borderRadius = "999px";
+    bannerText.style.background = "rgba(255,255,255,0.75)";
+    bannerText.style.color = "#111";
+    bannerText.style.backdropFilter = "blur(2px)";
+    bannerText.style.textShadow = "0 1px 1px rgba(255,255,255,0.6), 0 -1px 1px rgba(255,255,255,0.3)";
+    bannerText.style.fontFamily = '"Segoe UI", "Noto Sans", Arial, sans-serif';
+
+    const isMobile = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+    if (isMobile) {
+      bannerText.style.whiteSpace = "normal";
+      bannerText.style.lineHeight = "1.3";
+      bannerText.style.textAlign = "center";
+    } else {
+      bannerText.style.whiteSpace = "nowrap";
+      bannerText.style.lineHeight = "1.1";
+    }
+
+    banner.appendChild(bannerText);
+    (function () {
+      const svgNS = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(svgNS, "svg");
+      svg.setAttribute("width", "24");
+      svg.setAttribute("height", "16");
+      svg.setAttribute("viewBox", "0 0 24 16");
+      svg.setAttribute("aria-label", "PL");
+      svg.setAttribute("role", "img");
+      svg.style.marginLeft = "8px";
+      svg.style.verticalAlign = "middle";
+      svg.style.border = "1px solid #333";
+      svg.style.borderRadius = "2px";
+      const top = document.createElementNS(svgNS, "rect");
+      top.setAttribute("x", "0");
+      top.setAttribute("y", "0");
+      top.setAttribute("width", "24");
+      top.setAttribute("height", "8");
+      top.setAttribute("fill", "#ffffff");
+      const bottom = document.createElementNS(svgNS, "rect");
+      bottom.setAttribute("x", "0");
+      bottom.setAttribute("y", "8");
+      bottom.setAttribute("width", "24");
+      bottom.setAttribute("height", "8");
+      bottom.setAttribute("fill", "#DC143C");
+      svg.appendChild(top);
+      svg.appendChild(bottom);
+      bannerText.appendChild(svg);
+    })();
+
+    // If we found the market container, put the banner as its first child; else use qualityRow placement
+    if (marketContainer) {
+      marketContainer.prepend(banner);
+    } else if (qualityRow && qualityRow.parentElement) {
+      qualityRow.parentElement.insertBefore(banner, qualityRow);
+    } else {
+      container.prepend(banner);
+    }
+  }
+
+  function alreadyInjected(anchor) {
+    return anchor.querySelector(".ec-flag");
+  }
+
+  function insertFlag(anchor, flagSrc, altText) {
+    // Prefer placing after the seller name span if present, else at the end of anchor
+    const nameSpan = anchor.querySelector("span.bold.font-11");
+    const img = document.createElement("img");
+    img.className = "ec-flag";
+    img.src = flagSrc;
+    img.alt = altText || "Country";
+    img.width = 25;
+    img.height = 20;
+    // Enforce exact rendered size against site-wide CSS
+    img.style.setProperty("width", "25px", "important");
+    img.style.setProperty("height", "20px", "important");
+    img.style.marginLeft = "6px";
+    img.style.verticalAlign = "middle";
+    img.style.border = "1px solid #333";
+    img.style.borderRadius = "2px";
+    img.title = altText || "";
+
+    // Insert type badge [G]/[H] (Gracz/Holding) once, between name and flag — but not on auction pages
+    if (!IS_AUCTION_PAGE) {
+      let badge = anchor.querySelector(".ec-type-badge");
+      const hrefVal = anchor.getAttribute("href") || "";
+      const isHoldingLink = hrefVal.startsWith("/holding/");
+      const isUserLink = hrefVal.startsWith("/user/");
+      const isMuLink = hrefVal.startsWith("/militaryunit/");
+      if (!badge && (isHoldingLink || isUserLink || isMuLink)) {
+        badge = document.createElement("span");
+        badge.className = "ec-type-badge";
+        badge.textContent = isHoldingLink ? "[H]" : isUserLink ? "[G]" : "[MU]";
+        badge.title = isHoldingLink ? "Holding" : isUserLink ? "Gracz" : "Jednostka wojskowa";
+        badge.style.marginLeft = "3px";
+        badge.style.fontSize = "12px";
+        badge.style.fontWeight = "700";
+        badge.style.lineHeight = "1";
+        badge.style.verticalAlign = "middle";
+        badge.style.display = "inline-block";
+        badge.style.padding = "0 3px";
+        badge.style.border = "0px";
+        badge.style.background = "transparent";
+        badge.style.color = "inherit";
+        badge.style.opacity = "0.72";
+        if (nameSpan) {
+          nameSpan.after(badge);
+        } else {
+          anchor.appendChild(badge);
+        }
+      }
+    }
+
+    // Insert flag after the badge if present, else after the name, else at the end
+    const insertAfterEl = anchor.querySelector(".ec-type-badge") || nameSpan;
+    if (insertAfterEl) {
+      insertAfterEl.after(img);
+    } else {
+      anchor.appendChild(img);
+    }
+
+    // If not Poland, add a small poop indicator
+    const isPolish = (altText || "").toLowerCase() === "poland";
+    if (!isPolish) {
+      /* add indicator once
+      if (!anchor.querySelector('.ec-non-pl-indicator')) {
+        const mark = document.createElement('span')
+        mark.className = 'ec-non-pl-indicator'
+        mark.textContent = '💩'
+        mark.title = altText ? `Kraj: ${altText}` : 'Inny kraj'
+        mark.style.marginLeft = '4px'
+        mark.style.fontSize = '26px'
+        mark.style.lineHeight = '1'
+        mark.style.verticalAlign = 'middle'
+        img.after(mark)
+      }
+      */
+
+      // color seller/holding name red once
+      if (!anchor.classList.contains("ec-non-pl-colored")) {
+        anchor.classList.add("ec-non-pl-colored");
+        if (nameSpan) {
+          nameSpan.style.setProperty("color", "#ef4444", "important"); // red-500
+        } else {
+          anchor.style.setProperty("color", "#ef4444", "important");
+        }
+      }
+    }
+
+    // Decorate Buy/Bid buttons in the same listing (desktop row or mobile card)
+    decorateOfferButtons(anchor, isPolish);
+  }
+
+  // Add a small indicator to Buy/Bid buttons within the same listing/table
+  function decorateOfferButtons(anchor, isPolish) {
+    // Desktop: limit to the same <tr>. Mobile: limit to the same .card (single offer)
+    const row = anchor.closest("tr");
+    const card = anchor.closest(".card");
+    // For mobile, each offer is its own table inside a card; for desktop, many rows share one table
+    const scope = row || card || anchor.closest("table.table-striped.mb-0") || anchor.closest("table");
+    if (!scope) return;
+    if (IS_AUCTION_PAGE) {
+      decorateAuctionBidButtons(scope);
+      return;
+    }
+    const buttons = scope.querySelectorAll("a.accept-offer");
+    buttons.forEach((btn) => {
+      if (btn.querySelector(".ec-offer-ind")) return;
+      const badge = document.createElement("span");
+      badge.className = "ec-offer-ind";
+      badge.textContent = isPolish ? " \u2705" : " \u26A0\uFE0F";
+      badge.title = isPolish ? "Polski sprzedawca" : "Sprzedawca spoza Polski";
+      badge.style.marginLeft = "6px";
+      badge.style.fontSize = "16px";
+      badge.style.verticalAlign = "middle";
+      btn.appendChild(badge);
+    });
+  }
+
+  function parsePriceValue(text) {
+    if (!text) return null;
+    const cleaned = text.replace(RE_NBSP, " ").replace(RE_NOT_NUM, "").trim();
+    if (!cleaned) return null;
+    const hasComma = cleaned.includes(",");
+    const hasDot = cleaned.includes(".");
+    if (hasComma && hasDot) {
+      if (cleaned.lastIndexOf(".") > cleaned.lastIndexOf(",")) {
+        return parseFloat(cleaned.replace(RE_COMMA, ""));
+      }
+      return parseFloat(cleaned.replace(RE_DOT, "").replace(",", "."));
+    }
+    if (hasComma) {
+      const parts = cleaned.split(",");
+      if (parts.length === 2 && parts[1].length > 0 && parts[1].length <= 3) {
+        return parseFloat(cleaned.replace(",", "."));
+      }
+      return parseFloat(cleaned.replace(RE_COMMA, ""));
+    }
+    if (hasDot) {
+      const segments = cleaned.split(".");
+      if (segments.length === 2 && segments[1].length > 0 && segments[1].length <= 3) {
+        return parseFloat(cleaned);
+      }
+      return parseFloat(cleaned.replace(RE_DOT, ""));
+    }
+    return parseFloat(cleaned);
+  }
+
+  function decorateAuctionBidButtons(scope) {
+    const buttons = scope.querySelectorAll("a.accept-offer");
+    if (!buttons.length) return;
+
+    buttons.forEach((btn) => {
+      btn.querySelectorAll(".ec-offer-ind").forEach((el) => el.remove());
+    });
+
+    const currentBidEl = scope.querySelector(".current-best-offer");
+    if (!currentBidEl) return;
+    const currentBid = parsePriceValue(currentBidEl.textContent);
+    if (currentBid === null || Number.isNaN(currentBid)) return;
+
+    const tooltip = Array.from(scope.querySelectorAll(".tooltip-content")).find((el) => {
+      const header = el.querySelector(".c-tooltip-header");
+      if (!header) return false;
+      const headerText = (header.textContent || "").trim().toLowerCase();
+      return headerText.includes("average price") || headerText.includes("średnia cena");
+    });
+    if (!tooltip) return;
+    const averageTextEl = tooltip.querySelector("p");
+    if (!averageTextEl) return;
+    const averagePrice = parsePriceValue(averageTextEl.textContent);
+    if (averagePrice === null || Number.isNaN(averagePrice)) return;
+
+    const thresholdRatio = 0.1;
+    const ratio = averagePrice === 0 ? null : (currentBid - averagePrice) / averagePrice;
+
+    let symbol = "━";
+    let color = "#facc15";
+    let state = "within";
+    if (ratio === null) {
+      symbol = "∅";
+      color = "#9ca3af";
+      state = "no-data";
+    } else if (ratio > thresholdRatio) {
+      symbol = "▲";
+      color = "#dc2626";
+      state = "above";
+    } else if (ratio < -thresholdRatio) {
+      symbol = "▼";
+      color = "#16a34a";
+      state = "below";
+    }
+
+    const diffPercent = ratio === null ? null : (ratio * 100).toFixed(1);
+    const titleParts = [`Current bid: ${currentBid.toFixed(3)}`, `Avg (7d): ${averagePrice.toFixed(3)}`];
+    if (diffPercent !== null) {
+      titleParts.push(`Diff: ${diffPercent}%`);
+    } else {
+      titleParts.push("Diff: unavailable");
+    }
+
+    buttons.forEach((btn) => {
+      let indicator = btn.querySelector(".ec-auction-ind");
+      if (!indicator) {
+        indicator = document.createElement("span");
+        indicator.className = "ec-auction-ind";
+        indicator.style.marginLeft = "6px";
+        indicator.style.fontSize = "16px";
+        indicator.style.fontWeight = "700";
+        indicator.style.verticalAlign = "middle";
+        btn.appendChild(indicator);
+      }
+      indicator.textContent = ` ${symbol}`;
+      indicator.style.color = color;
+      indicator.dataset.state = state;
+      indicator.title = titleParts.join(" • ");
+    });
+  }
+
+  function scanAndDecorateAuctions(root = document) {
+    if (!IS_AUCTION_PAGE) return;
+
+    const scopes = [];
+    root.querySelectorAll(".current-best-offer").forEach((el) => {
+      const scope = el.closest(".card") || el.closest("tr") || el.closest("table");
+      if (scope && scopes.indexOf(scope) === -1) {
+        scopes.push(scope);
+      }
+    });
+
+    scopes.forEach((scope) => {
+      decorateAuctionBidButtons(scope);
+    });
+  }
+
+  async function fetchFlagForUser(userPath) {
+    if (cache[userPath]?.url) {
+      return { url: cache[userPath].url, alt: cache[userPath].alt };
+    }
+
+    const profileUrl = makeAbsoluteUrl(userPath);
+    const res = await fetch(profileUrl, { credentials: "include" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const html = await res.text();
+
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const flagImg = doc.querySelector("a.link-nationality img");
+    if (!flagImg) throw new Error("Flag not found");
+
+    const src = makeAbsoluteUrl(flagImg.getAttribute("src"));
+    const alt = flagImg.getAttribute("alt") || "";
+
+    cache[userPath] = { url: src, alt, ts: Date.now() };
+    saveCache();
+    return { url: src, alt };
+  }
+
+  async function fetchFlagForMilitaryUnit(muPath) {
+    if (cache[muPath]?.url) {
+      return { url: cache[muPath].url, alt: cache[muPath].alt };
+    }
+
+    const muUrl = makeAbsoluteUrl(muPath);
+    const res = await fetch(muUrl, { credentials: "include" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const html = await res.text();
+
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const muCountry = doc.querySelector(".mu-country");
+    if (!muCountry) throw new Error("MU country block not found");
+
+    const flagImg = muCountry.querySelector("img");
+    if (!flagImg) throw new Error("MU flag image not found");
+
+    const src = makeAbsoluteUrl(flagImg.getAttribute("src"));
+    const countryEl = muCountry.querySelector("small");
+    const altText = countryEl ? countryEl.textContent.trim() : flagImg.getAttribute("alt") || "";
+
+    cache[muPath] = { url: src, alt: altText, ts: Date.now() };
+    saveCache();
+    return { url: src, alt: altText };
+  }
+
+  async function fetchOfficerFlagForHolding(holdingPath) {
+    if (cache[holdingPath]?.url) {
+      return { url: cache[holdingPath].url, alt: cache[holdingPath].alt };
+    }
+
+    const holdingUrl = makeAbsoluteUrl(holdingPath);
+    const res = await fetch(holdingUrl, { credentials: "include" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const html = await res.text();
+
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const ceoLink = doc.querySelector('a.ceo-link[href^="/user/"], a.ceo-link[href^="/militaryunit/"]');
+    if (!ceoLink) throw new Error("CEO link not found on holding page");
+
+    const officerUserPath = ceoLink.getAttribute("href");
+    if (!officerUserPath) {
+      throw new Error("Invalid CEO href on holding page");
+    }
+
+    let result;
+    if (officerUserPath.startsWith("/user/")) {
+      result = await fetchFlagForUser(officerUserPath);
+    } else if (officerUserPath.startsWith("/militaryunit/")) {
+      result = await fetchFlagForMilitaryUnit(officerUserPath);
+    } else {
+      throw new Error("Unsupported CEO href on holding page");
+    }
+
+    const { url, alt } = result;
+
+    cache[holdingPath] = { url, alt, ts: Date.now() };
+    saveCache();
+    return { url, alt };
+  }
+
+  function pLimit(limit) {
+    let active = 0;
+    const queue = [];
+    const next = () => {
+      if (active >= limit || queue.length === 0) return;
+      const { fn, resolve, reject } = queue.shift();
+      active++;
+      Promise.resolve()
+        .then(fn)
+        .then((v) => {
+          active--;
+          resolve(v);
+          next();
+        })
+        .catch((e) => {
+          active--;
+          reject(e);
+          next();
+        });
+    };
+    return (fn) =>
+      new Promise((resolve, reject) => {
+        queue.push({ fn, resolve, reject });
+        next();
+      });
+  }
+
+  const limit = pLimit(MAX_CONCURRENCY);
+
+  function processAnchors(anchors) {
+    anchors.forEach((anchor) => {
+      if (alreadyInjected(anchor)) return;
+      const href = anchor.getAttribute("href") || "";
+
+      anchor.dataset.ecFlagPending = "1";
+
+      const handleResult = ({ url, alt }) => {
+        if (!document.contains(anchor) || alreadyInjected(anchor)) return;
+        insertFlag(anchor, url, alt);
+      };
+      const finalize = () => {
+        anchor.dataset.ecFlagPending = "";
+      };
+
+      if (href.startsWith("/user/")) {
+        if (cache[href]?.url) {
+          handleResult({ url: cache[href].url, alt: cache[href].alt });
+          finalize();
+          return;
+        }
+        limit(() => {
+          if (!document.body.contains(anchor)) return Promise.reject("Skipped: detached");
+          return fetchFlagForUser(href);
+        })
+          .then(handleResult)
+          .catch(() => {})
+          .finally(finalize);
+        return;
+      }
+
+      if (href.startsWith("/holding/")) {
+        if (cache[href]?.url) {
+          handleResult({ url: cache[href].url, alt: cache[href].alt });
+          finalize();
+          return;
+        }
+        limit(() => {
+          if (!document.body.contains(anchor)) return Promise.reject("Skipped: detached");
+          return fetchOfficerFlagForHolding(href);
+        })
+          .then(handleResult)
+          .catch(() => {})
+          .finally(finalize);
+        return;
+      }
+
+      if (href.startsWith("/militaryunit/")) {
+        if (cache[href]?.url) {
+          handleResult({ url: cache[href].url, alt: cache[href].alt });
+          finalize();
+          return;
+        }
+        limit(() => {
+          if (!document.body.contains(anchor)) return Promise.reject("Skipped: detached");
+          return fetchFlagForMilitaryUnit(href);
+        })
+          .then(handleResult)
+          .catch(() => {})
+          .finally(finalize);
+        return;
+      }
+
+      finalize();
+    });
+  }
+
+  function scanAndInject(root = document) {
+    let anchors = findSellerAnchors(root).filter((a) => !alreadyInjected(a) && a.dataset.ecFlagPending !== "1");
+    // Process in small batches to avoid flooding headers/requests,
+    // and rely on MutationObserver (triggered by insertions) to chain the next batch.
+    anchors = anchors.slice(0, BATCH_SIZE);
+
+    if (anchors.length) {
+      processAnchors(anchors);
+    }
+
+    // Ensure auction indicators are applied even if there are no seller anchors
+    scanAndDecorateAuctions(root);
+  }
+
+  // Initial run
+  scanAndInject();
+  insertMotivationBanner();
+  enableMultiplicationInputs();
+
+  // Re-run on DOM changes (pagination, infinite loads, filters)
+  const observer = new MutationObserver((mutations) => {
+    let shouldScan = false;
+    for (const m of mutations) {
+      if (m.addedNodes && m.addedNodes.length) {
+        shouldScan = true;
+        break;
+      }
+    }
+    if (shouldScan) {
+      // Small debounce
+      clearTimeout(observer._t);
+      observer._t = setTimeout(() => {
+        scanAndInject();
+        insertMotivationBanner();
+        enableMultiplicationInputs();
+      }, 300);
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  // Also re-scan on pagination click events (site may re-render via JS)
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest(".pagination_item");
+    if (a) {
+      setTimeout(() => {
+        scanAndInject();
+        insertMotivationBanner();
+        enableMultiplicationInputs();
+      }, 400);
+    }
+  });
+})();
