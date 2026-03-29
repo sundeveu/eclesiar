@@ -1,0 +1,66 @@
+"avatar","id","name","negotiable","quality","type","weight"
+"https://storage.eclesiar.com/medias/25.png?v=b2ae775a4952cbe6e286d8af65d8d162",1,"Grain",true,0,"CEREAL",1
+"https://storage.eclesiar.com/medias/24.png?v=40a0dd99db4013221304133eba6b7748",2,"Food",true,1,"FOOD",3
+"https://storage.eclesiar.com/medias/23.png?v=07bcd164bf7652f6204b7120d17a3d5d",3,"Food",true,2,"FOOD",3
+"https://storage.eclesiar.com/medias/22.png?v=fd71439dc35b539fcd5b3594cbeeed87",4,"Food",true,3,"FOOD",3
+"https://storage.eclesiar.com/medias/21.png?v=6904b725692139a87038f86510246294",5,"Food",true,4,"FOOD",3
+"https://storage.eclesiar.com/medias/20.png?v=947f42af1e15eacba7ac7e2f1336b13c",6,"Food",true,5,"FOOD",3
+"https://storage.eclesiar.com/medias/19.png?v=18c1545b2c5dfcc8fdc482e715ec3f6f",7,"Iron",true,0,"MATERIALS",1
+"https://storage.eclesiar.com/medias/18.png?v=85204a1bec3e95eb3bf98c95f06436ea",8,"Weapon",true,1,"WEAPONS",2
+"https://storage.eclesiar.com/medias/17.png?v=ddada0bf129e44f2426ce9c50ac6f33a",9,"Weapon",true,2,"WEAPONS",2
+"https://storage.eclesiar.com/medias/16.png?v=5a81978182d85b6629545617f92bd441",10,"Weapon",true,3,"WEAPONS",2
+"https://storage.eclesiar.com/medias/15.png?v=58ff86439c36ec8b75cc514d5f3901d3",11,"Weapon",true,4,"WEAPONS",2
+"https://storage.eclesiar.com/medias/14.png?v=ed6bd607497157a991e5a1315ad9191f",12,"Weapon",true,5,"WEAPONS",2
+"https://storage.eclesiar.com/medias/13.png?v=48af9d3ff04beeeb877c8074470f911c",13,"Fuel",true,0,"DIAMONDS",1
+"https://storage.eclesiar.com/medias/12.png?v=2bff60611b61f39842c60677e525bc9a",14,"Airplane ticket",true,1,"TICKETS",4
+"https://storage.eclesiar.com/medias/11.png?v=18e085a7a8f9995bc615b9d72b4b57e4",15,"Airplane ticket",true,2,"TICKETS",4
+"https://storage.eclesiar.com/medias/10.png?v=b9aaf77c82a6d5a07e2c9045d7748b31",16,"Airplane ticket",true,3,"TICKETS",4
+"https://storage.eclesiar.com/medias/9.png?v=99c480079a84107c4f89f2ee964e77da",17,"Airplane ticket",true,4,"TICKETS",4
+"https://storage.eclesiar.com/medias/8.png?v=4d980cc2f904f32f4645e55e51dab20e",18,"Airplane ticket",true,5,"TICKETS",4
+"https://storage.eclesiar.com/medias/7.png?v=57bea34d4c4a719a55243900f1a72a69",19,"Titanium",true,0,"AIRMATERIALS",1
+"https://storage.eclesiar.com/medias/2.png?v=3fbda54a51e3110c6616eb6d4deb9a9b",20,"Aircraft",true,1,"AIRWEAPONS",4
+"https://storage.eclesiar.com/medias/3.png?v=764e91e31e8d5542b81f62513d165ac1",21,"Aircraft",true,2,"AIRWEAPONS",4
+"https://storage.eclesiar.com/medias/4.png?v=e35cffaa4ffa447702be2934b9a66053",22,"Aircraft",true,3,"AIRWEAPONS",4
+"https://storage.eclesiar.com/medias/5.png?v=58efedd023e67be89758b950baa27ab7",23,"Aircraft",true,4,"AIRWEAPONS",4
+"https://storage.eclesiar.com/medias/6.png?v=5ac137b2a5a3b27c200604bd5958e0f1",24,"Aircraft",true,5,"AIRWEAPONS",4
+"https://storage.eclesiar.com/medias/26.png?v=480caa879a54b20ec9e1219d1d210349",25,"Bunker",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/27.png?v=35e8b1cf2bb3955cf048f457b396bc07",26,"City map",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/28.png?v=4822edf58f71895449461ba9c5e74d6c",27,"Tank",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/29.png?v=b895f4554220ee46cf850ea351fd47f5",28,"Bomber",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/30.png?v=8a07653357710675d79d790c89074be3",29,"Steroids",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/31.png?v=6a6e68bc7dae85f2699d6262d574e0c3",30,"Medic bag",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/32.png?v=c1b33b64f60fb4b7460abedbc8054798",31,"Adrenaline",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/33.png?v=6bb997502ada6cf11867bd43d87d5db7",32,"Focus",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/432.png?v=37dc8a46caff6288eef4be10441f75ef",33,"Hammer",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/3247.png?v=12b392881d7c93e3925cdb280714b243",34,"Coffee",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/3248.png?v=aa6f749a7da59a9d5663777cf376a497",35,"Protein bar",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/4835.png?v=cee933959723db9ed1b79fbe02406c11",36,"Food",true,5,"FOOD",3
+"https://storage.eclesiar.com/medias/4836.png?v=9d5c6e0a1f9d991f81ac9ab9b07acd80",37,"Airplane ticket",true,5,"TICKETS",4
+"https://storage.eclesiar.com/medias/4837.png?v=2e8e2f49852b77658b0dc003674d6455",38,"Aircraft",true,5,"AIRWEAPONS",4
+"https://storage.eclesiar.com/medias/4838.png?v=aae21245eaf210eb230cdfca2087bce7",39,"Weapon",true,5,"WEAPONS",2
+"https://storage.eclesiar.com/medias/6190.png?v=ab53965d7ab332548237b9bc584ccd31",40,"Relocation Permit",true,3,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/6191.png?v=0526eb3175de2407d4624299563a9e4f",41,"Relocation Permit",true,4,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/6192.png?v=7fa7433b01fd7e30ca3db7bef48b2e3b",42,"Relocation Permit",true,5,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/7497.png?v=f709bba127287edf03572f7ef6e4e344",43,"Megaphone",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/7500.png?v=ece88383f46abf9e2644e4c283150294",44,"Ear plugs",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/7644.png?v=6d6783a79515fec4df15f30e0af19080",45,"Merge Office",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/8270.png?v=f00145a8e3390bab08fea46659b72781",46,"Military Strategy Manual
+",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/8269.png?v=710db510746982cd647db3910b2042b9",47,"Advanced Engineering Kit
+",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/8268.png?v=5d3259f72b353af7c9e2ba5c63815117",48,"Medic bag",false,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/8267.png?v=e775f8b8c7319abd69168e03f623e5cd",49,"Adrenaline",false,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/placeholder_item.png",50,"Redbull",false,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/placeholder_item.png",51,"Protein Shake",false,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/11306.png?v=b92535686d4d56ec478b35ec925b6d42",52,"Tactical Rucksack",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/17356.png?v=741cdd999b7232f2e1d030faf1dbacbd",53,"Notepad",true,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/19923.png?v=4d4035de7be67d039cec3fc0c2fc136f",54,"Notepad",false,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/19767.png?v=3ae74780c2444fa551a49bf2db78e699",55,"Military Strategy Manual
+",false,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/19766.png?v=2a6f3d3c07d1d1058f461677b6772f64",56,"Advanced Engineering Kit
+",false,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/19194.png?v=928eb5ab39d00214584485d3a318d1a8",57,"Coffee",false,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/19193.png?v=f3c4389db0f66aa3826886d2bd644eeb",58,"Protein bar",false,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/19847.png?v=6c87f81ac365ddf3276735aeceb500c7",59,"Tank",false,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/19846.png?v=874d39cfc5a4f3537da20338dbd9d7b6",60,"Hammer",false,0,"CONSUMABLE",0
+"https://storage.eclesiar.com/medias/19845.png?v=99cb577ccffdbc97425eee1c0d401d8b",61,"Relocation Permit",false,3,"CONSUMABLE",0
