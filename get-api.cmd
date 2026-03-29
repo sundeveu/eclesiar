@@ -2,7 +2,7 @@
 call .env.cmd
 rem --------------------------------------------------------------------------------------------
 rem .data[] | to_entries | map("["+.key+"]") as $k | map(.value) as $v | "insert into [dbo].[equipments] (\($k | join(","))) values (\($v | @csv ));"
-echo create table [dbo].[equipments]( > %ECLESIAR_EQUIPMENTS%.sql
+echo create table [dbo].[%ECLESIAR_EQUIPMENTS%]( > %ECLESIAR_EQUIPMENTS%.sql
 echo    [id] int NOT NULL, >> %ECLESIAR_EQUIPMENTS%.sql
 echo    [slot] int NOT NULL, >> %ECLESIAR_EQUIPMENTS%.sql
 echo    [grade] int NOT NULL, >> %ECLESIAR_EQUIPMENTS%.sql

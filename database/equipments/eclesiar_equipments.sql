@@ -1,4 +1,4 @@
-create table [dbo].[equipments]( 
+create table [dbo].[eclesiar_equipments]( 
    [id] int NOT NULL, 
    [slot] int NOT NULL, 
    [grade] int NOT NULL, 
